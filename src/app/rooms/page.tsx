@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import CreateRoomButton from '@/components/CreateRoomButton'
+import RoomActions from '@/components/RoomActions'
+
+export const dynamic = 'force-dynamic'
 
 export default async function RoomsPage() {
   const supabase = await createClient()
@@ -10,11 +13,16 @@ export default async function RoomsPage() {
 
   const { data: userRooms } = await supabase
     .from('room_members')
-    .select('room_id, player_slot, rooms(id, name, code, created_at)')
+    .select('room_id, player_slot, joined_at, rooms(id, name, code, created_by, created_at)')
     .eq('user_id', user.id)
     .order('joined_at', { ascending: false })
 
-  const rooms = (userRooms ?? []).map((r: any) => r.rooms).filter(Boolean)
+  const rooms = (userRooms ?? [])
+    .map((r: any) => ({ ...r.rooms, player_slot: r.player_slot }))
+    .filter(Boolean)
+
+  const hosted = rooms.filter((r: any) => r.created_by === user.id)
+  const joined = rooms.filter((r: any) => r.created_by !== user.id)
 
   return (
     <main className="min-h-screen bg-[#1A0A00] text-[#F5ECD7] px-5 pt-6 pb-20"
@@ -26,7 +34,7 @@ export default async function RoomsPage() {
         ← Dashboard
       </Link>
 
-      <div className="flex items-center justify-between mt-4 mb-6">
+      <div className="flex items-center justify-between mt-4 mb-8">
         <h1 className="font-display text-[#C9A84C] text-xl tracking-wider">Rooms</h1>
         <CreateRoomButton userId={user.id} />
       </div>
@@ -37,20 +45,70 @@ export default async function RoomsPage() {
           <p className="text-[#F5ECD7]/30 text-sm font-body italic">No rooms yet. Create one to start playing.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {rooms.map((room: any) => (
-            <Link
-              key={room.id}
-              href={`/rooms/${room.id}`}
-              className="flex items-center justify-between px-4 py-4 bg-[#F5ECD7]/4 border border-[#C9A84C]/20 rounded-xl hover:border-[#C9A84C]/40 transition-all"
-            >
-              <div>
-                <div className="text-[#E8C97A] font-display text-sm tracking-wider">{room.name}</div>
-                <div className="text-[#F5ECD7]/30 text-xs font-body mt-0.5">Code: {room.code}</div>
+        <div className="flex flex-col gap-8">
+
+          {/* Hosted rooms */}
+          {hosted.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-display text-[#C9A84C]/50 text-xs tracking-widest uppercase">Your Rooms</span>
+                <div className="flex-1 h-px bg-[#C9A84C]/10" />
+                <span className="text-[#C9A84C]/30 text-xs">👑 {hosted.length}</span>
               </div>
-              <span className="text-[#C9A84C]/40 text-lg">›</span>
-            </Link>
-          ))}
+              <div className="flex flex-col gap-2">
+                {hosted.map((room: any) => (
+                  <div key={room.id} className="flex items-center gap-2">
+                    <Link
+                      href={`/rooms/${room.id}`}
+                      className="flex-1 flex items-center justify-between px-4 py-4 bg-[#F5ECD7]/4 border border-[#C9A84C]/25 rounded-xl hover:border-[#C9A84C]/50 transition-all"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#C9A84C]/50 text-xs">👑</span>
+                          <span className="text-[#E8C97A] font-display text-sm tracking-wider">{room.name}</span>
+                        </div>
+                        <div className="text-[#F5ECD7]/25 text-xs font-body mt-0.5 ml-5">Code: {room.code}</div>
+                      </div>
+                      <span className="text-[#C9A84C]/40 text-lg">›</span>
+                    </Link>
+                    <RoomActions roomId={room.id} roomName={room.name} isHost={true} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Joined rooms */}
+          {joined.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-display text-[#C9A84C]/50 text-xs tracking-widest uppercase">Joined Rooms</span>
+                <div className="flex-1 h-px bg-[#C9A84C]/10" />
+                <span className="text-[#F5ECD7]/20 text-xs">🎴 {joined.length}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {joined.map((room: any) => (
+                  <div key={room.id} className="flex items-center gap-2">
+                    <Link
+                      href={`/rooms/${room.id}`}
+                      className="flex-1 flex items-center justify-between px-4 py-4 bg-[#F5ECD7]/3 border border-[#F5ECD7]/10 rounded-xl hover:border-[#F5ECD7]/20 transition-all"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#F5ECD7]/20 text-xs">🎴</span>
+                          <span className="text-[#F5ECD7]/80 font-display text-sm tracking-wider">{room.name}</span>
+                        </div>
+                        <div className="text-[#F5ECD7]/20 text-xs font-body mt-0.5 ml-5">Slot {room.player_slot} · Code: {room.code}</div>
+                      </div>
+                      <span className="text-[#F5ECD7]/20 text-lg">›</span>
+                    </Link>
+                    <RoomActions roomId={room.id} roomName={room.name} isHost={false} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       )}
     </main>
