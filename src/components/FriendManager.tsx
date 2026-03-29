@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 interface UserProfile {
   id: string
@@ -31,7 +30,6 @@ export default function FriendManager({ currentUserId, initialFriendships }: Pro
   const [searchResult, setSearchResult] = useState<UserProfile | null>(null)
   const [searchError, setSearchError] = useState('')
   const supabase = createClient()
-  const router = useRouter()
 
   const accepted = friendships.filter(f => f.status === 'accepted')
   const pending = friendships.filter(f => f.status === 'pending')
