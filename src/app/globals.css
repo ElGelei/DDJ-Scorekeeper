@@ -20,6 +20,10 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+  /* Supprime le 300ms tap delay iOS sur tous les éléments */
+  touch-action: manipulation;
+  /* Supprime le flash bleu/gris au tap sur iOS */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
@@ -27,12 +31,29 @@ html, body {
   overflow-x: hidden;
   background-color: var(--ink);
   color: var(--parchment);
+  /* Empêche le scroll bounce qui perturbe les taps */
+  overscroll-behavior: none;
 }
 
 body {
   font-family: 'Spectral', Georgia, serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Boutons et liens : réponse tactile immédiate */
+button, a, [role="button"] {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* Feedback visuel immédiat au tap */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button:active, a:active {
+  opacity: 0.75;
+  transition: opacity 0.05s;
 }
 
 .font-chinese {
