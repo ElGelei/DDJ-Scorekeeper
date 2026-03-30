@@ -50,8 +50,8 @@ export default async function DashboardPage() {
         <Link href="/training" className="col-span-2 bg-ink-light border border-gold/20 rounded-xl p-5 hover:border-gold/40 transition-all flex items-center gap-4">
           <div className="text-2xl">⚔️</div>
           <div>
-            <h2 className="font-display text-gold text-sm tracking-wider mb-1">Entraînement</h2>
-            <p className="text-parchment/40 text-xs">Joue contre l'IA — niveaux 1 à 3</p>
+            <h2 className="font-display text-gold text-sm tracking-wider mb-1">Training</h2>
+            <p className="text-parchment/40 text-xs">Play against the AI — levels 1 to 3</p>
           </div>
         </Link>
       </div>
