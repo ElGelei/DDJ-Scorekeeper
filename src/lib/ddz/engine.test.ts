@@ -5,6 +5,7 @@ import {
   RANK_VALUES,
   type Card, type Combo,
 } from './engine'
+import { aiPlay, type AIInput } from './ai'
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -426,5 +427,173 @@ describe('integration: parseCombo + isValidPlay', () => {
         expect(combo.value).toBe(card.value)
       }
     }
+  })
+})
+
+// ── AI level 4 tests ───────────────────────────────────
+
+describe('AI level 4', () => {
+  function makeL4Input(overrides: Partial<AIInput>): AIInput {
+    return {
+      hand: [],
+      lastPlayed: null,
+      playedCards: [],
+      isLandlord: false,
+      playerCardCounts: [17, 17, 17],
+      myPlayerIdx: 1,
+      landlordIdx: 0,
+      ...overrides,
+    }
+  }
+
+  it('does not waste a bomb when an ally farmer can win this turn', () => {
+    // AI is farmer (idx 1), ally farmer (idx 2) has only 1 card left.
+    // Table is clear. AI should NOT lead with a bomb — ally can finish next.
+    const bomb: Card[] = [
+      { id: '7-s', rank: '7', suit: '♠', value: 7 },
+      { id: '7-h', rank: '7', suit: '♥', value: 7 },
+      { id: '7-d', rank: '7', suit: '♦', value: 7 },
+      { id: '7-c', rank: '7', suit: '♣', value: 7 },
+    ]
+    const input = makeL4Input({
+      hand: [...bomb,
+        { id: '3-s', rank: '3', suit: '♠', value: 3 },
+        { id: '4-s', rank: '4', suit: '♠', value: 4 },
+      ],
+      isLandlord: false,
+      myPlayerIdx: 1,
+      landlordIdx: 0,
+      playerCardCounts: [10, 6, 1], // ally idx 2 has 1 card
+      lastPlayed: null,
+    })
+    const play = aiPlay(input, 4)
+    if (play !== null) {
+      expect(parseCombo(play)?.type).not.toBe('BOMB')
+    }
+  })
+
+  it('farmer coordination: does not counter-productively beat ally lead', () => {
+    // AI is farmer (idx 2), ally farmer (idx 1) just led a single 3 (lastPlayedBy=1).
+    // AI cannot improve the table; should pass.
+    const allyLead = parseCombo([
+      { id: '3-s', rank: '3', suit: '♠', value: 3 },
+    ])!
+    const input = makeL4Input({
+      hand: [
+        { id: '5-s', rank: '5', suit: '♠', value: 5 },
+        { id: '6-s', rank: '6', suit: '♠', value: 6 },
+        { id: 'K-s', rank: 'K', suit: '♠', value: 13 },
+      ],
+      isLandlord: false,
+      myPlayerIdx: 2,
+      landlordIdx: 0,
+      playerCardCounts: [12, 3, 3],
+      lastPlayed: allyLead,
+      lastPlayedBy: 1 as any,
+    })
+    const play = aiPlay(input, 4)
+    // Should pass (null) to let ally keep control
+    expect(play).toBeNull()
+  })
+
+  it('landlord AI (level 4) plays when leading with fast hand', () => {
+    const input = makeL4Input({
+      hand: [
+        { id: 'A-s', rank: 'A', suit: '♠', value: 14 },
+        { id: 'K-s', rank: 'K', suit: '♠', value: 13 },
+        { id: 'Q-s', rank: 'Q', suit: '♠', value: 12 },
+      ],
+      isLandlord: true,
+      myPlayerIdx: 0,
+      landlordIdx: 0,
+      playerCardCounts: [3, 15, 14],
+      lastPlayed: null,
+    })
+    const play = aiPlay(input, 4)
+    expect(play).not.toBeNull()
+  })
+})
+
+// ── AI level 5 tests ───────────────────────────────────
+
+describe('AI level 5', () => {
+  function makeL5Input(overrides: Partial<AIInput>): AIInput {
+    return {
+      hand: [],
+      lastPlayed: null,
+      playedCards: [],
+      isLandlord: false,
+      playerCardCounts: [17, 17, 17],
+      myPlayerIdx: 1,
+      landlordIdx: 0,
+      passHistory: [],
+      ...overrides,
+    }
+  }
+
+  it('plays a 5-card straight to empty hand at endgame', () => {
+    const winningHand: Card[] = [
+      { id: '3-s', rank: '3', suit: '♠', value: 3 },
+      { id: '4-s', rank: '4', suit: '♠', value: 4 },
+      { id: '5-s', rank: '5', suit: '♠', value: 5 },
+      { id: '6-s', rank: '6', suit: '♠', value: 6 },
+      { id: '7-s', rank: '7', suit: '♠', value: 7 },
+    ]
+    const input = makeL5Input({
+      hand: winningHand,
+      isLandlord: true,
+      myPlayerIdx: 0,
+      landlordIdx: 0,
+      playerCardCounts: [5, 10, 10],
+      lastPlayed: null,
+    })
+    const play = aiPlay(input, 5)
+    expect(play).not.toBeNull()
+    expect(play!.length).toBe(5)
+    expect(parseCombo(play!)?.type).toBe('STRAIGHT')
+  })
+
+  it('does not bomb when landlord has 1 card and AI has an alternative play', () => {
+    const bomb: Card[] = [
+      { id: '8-s', rank: '8', suit: '♠', value: 8 },
+      { id: '8-h', rank: '8', suit: '♥', value: 8 },
+      { id: '8-d', rank: '8', suit: '♦', value: 8 },
+      { id: '8-c', rank: '8', suit: '♣', value: 8 },
+    ]
+    const input = makeL5Input({
+      hand: [...bomb,
+        { id: '3-s', rank: '3', suit: '♠', value: 3 },
+        { id: '3-h', rank: '3', suit: '♥', value: 3 },
+        { id: '3-d', rank: '3', suit: '♦', value: 3 },
+      ],
+      isLandlord: false,
+      myPlayerIdx: 1,
+      landlordIdx: 0,
+      playerCardCounts: [1, 7, 10],
+      lastPlayed: null,
+    })
+    const play = aiPlay(input, 5)
+    if (play !== null) {
+      expect(parseCombo(play)?.type).not.toBe('BOMB')
+    }
+  })
+
+  it('lookahead: prefers pair lead over two singles on 2-card endgame', () => {
+    const hand: Card[] = [
+      { id: '9-s', rank: '9', suit: '♠', value: 9 },
+      { id: '9-h', rank: '9', suit: '♥', value: 9 },
+    ]
+    const input = makeL5Input({
+      hand,
+      isLandlord: true,
+      myPlayerIdx: 0,
+      landlordIdx: 0,
+      playerCardCounts: [2, 8, 8],
+      lastPlayed: null,
+    })
+    const play = aiPlay(input, 5)
+    expect(play).not.toBeNull()
+    expect(play!.length).toBe(2)
+    expect(parseCombo(play!)?.type).toBe('PAIR')
   })
 })

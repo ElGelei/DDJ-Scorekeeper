@@ -6,7 +6,7 @@ import {
   createDeck, shuffle, deal, parseCombo, isValidPlay,
   type Card, type Combo,
 } from '@/lib/ddz/engine'
-import { aiPlay, getAllValidPlays, shouldBid, type AILevel } from '@/lib/ddz/ai'
+import { aiPlay, getAllValidPlays, shouldBid, type AILevel, type PassEvent } from '@/lib/ddz/ai'
 
 // ── Types ──────────────────────────────────────────────
 
@@ -38,6 +38,8 @@ interface GameState {
   phase: Phase
   /** Last 4 actions (plays + passes) for the history display */
   playLog: LogEntry[]
+  /** Pass history for level-5 inference */
+  passHistory: PassEvent[]
 }
 
 // ── Inline styles / helpers ────────────────────────────
@@ -193,6 +195,7 @@ export default function TrainingPage() {
       allPlayedCards: [],
       phase: 'bidding',
       playLog: [],
+      passHistory: [],
     })
     setBids([null, null, null])
     setBidStep(0)
@@ -311,6 +314,8 @@ export default function TrainingPage() {
       winner: newHands[playerIdx].length === 0 ? playerIdx : null,
       allPlayedCards: [...currentGame.allPlayedCards, ...cards],
       playLog: newLog,
+      // A new play starts a fresh trick — clear pass inference history
+      passHistory: [],
     }
   }, [])
 
@@ -324,12 +329,19 @@ export default function TrainingPage() {
       { player: playerIdx, passed: true },
       ...currentGame.playLog,
     ].slice(0, 5)
+    // Track pass history for level-5 inference; clear when table resets
+    const newPassHistory: PassEvent[] = clearTable
+      ? []
+      : currentGame.lastPlayed
+        ? [...currentGame.passHistory, { playerIdx, against: currentGame.lastPlayed }]
+        : currentGame.passHistory
     return {
       ...currentGame,
       currentPlayer: next,
       lastPlayed: clearTable ? null : currentGame.lastPlayed,
       lastPlayedBy: clearTable ? null : currentGame.lastPlayedBy,
       playLog: newLog,
+      passHistory: newPassHistory,
     }
   }, [])
 
@@ -338,6 +350,7 @@ export default function TrainingPage() {
     if (phase !== 'playing' || !game || game.winner !== null) return
     if (game.currentPlayer === 0) return // human
 
+    const thinkMs = ({ 1: 400, 2: 600, 3: 900, 4: 1200, 5: 1800 } as Record<AILevel, number>)[aiLevel]
     setThinking(true)
     const timer = setTimeout(() => {
       setThinking(false)
@@ -354,6 +367,9 @@ export default function TrainingPage() {
             playedCards: prev.allPlayedCards,
             isLandlord: prev.landlord === playerIdx,
             playerCardCounts: prev.hands.map(h => h.length),
+            myPlayerIdx: playerIdx,
+            landlordIdx: prev.landlord ?? undefined,
+            passHistory: prev.passHistory,
           },
           aiLevel,
         )
@@ -370,7 +386,7 @@ export default function TrainingPage() {
         }
         return newGame
       })
-    }, 800)
+    }, thinkMs)
 
     return () => clearTimeout(timer)
   }, [game?.currentPlayer, phase, aiLevel, executePlay, executePass]) // eslint-disable-line
@@ -559,12 +575,12 @@ export default function TrainingPage() {
                 AI LEVEL
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                {([1, 2, 3] as AILevel[]).map(l => (
+                {([1, 2, 3, 4, 5] as AILevel[]).map(l => (
                   <button
                     key={l}
                     onClick={() => setAiLevel(l)}
                     style={{
-                      width: 56, height: 44,
+                      width: 52, height: 44,
                       borderRadius: 8,
                       border: aiLevel === l ? `2px solid ${GOLD}` : `1px solid ${PAPER}20`,
                       background: aiLevel === l ? `${GOLD}18` : 'transparent',
@@ -574,8 +590,8 @@ export default function TrainingPage() {
                       transition: 'all 0.15s',
                     }}
                   >
-                    {l === 1 ? '🎲' : l === 2 ? '🧠' : '♟️'}<br />
-                    <span style={{ fontSize: 10 }}>{l === 1 ? 'Random' : l === 2 ? 'Aware' : 'Pro'}</span>
+                    {l === 1 ? '🎲' : l === 2 ? '🧠' : l === 3 ? '♟️' : l === 4 ? '🔥' : '👾'}<br />
+                    <span style={{ fontSize: 9 }}>{l === 1 ? 'Random' : l === 2 ? 'Aware' : l === 3 ? 'Pro' : l === 4 ? 'Sharp' : 'Expert'}</span>
                   </button>
                 ))}
               </div>
@@ -768,13 +784,13 @@ export default function TrainingPage() {
               }}>斗地主</div>
 
               {/* Level selector */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {([1, 2, 3] as AILevel[]).map(l => (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {([1, 2, 3, 4, 5] as AILevel[]).map(l => (
                   <button
                     key={l}
                     onClick={() => setAiLevel(l)}
                     style={{
-                      width: 34, height: 26,
+                      width: 28, height: 24,
                       borderRadius: 5,
                       border: aiLevel === l ? `1px solid ${GOLD}` : `1px solid ${PAPER}15`,
                       background: aiLevel === l ? `${GOLD}18` : 'transparent',
@@ -804,7 +820,10 @@ export default function TrainingPage() {
                     {game.landlord === aiIdx && (
                       <span style={{ color: GOLD }}>👑</span>
                     )}
-                    <span>IA {aiIdx}</span>
+                    <span>AI {aiIdx}</span>
+                    {aiLevel === 5 && (
+                      <span style={{ fontSize: 9, color: GOLD, letterSpacing: 0.5 }}>Expert 🧠</span>
+                    )}
                     <span style={{
                       background: `${PAPER}12`, borderRadius: 8,
                       padding: '1px 6px', fontSize: 10,

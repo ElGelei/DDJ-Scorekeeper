@@ -51,7 +51,7 @@ export default async function DashboardPage() {
           <div className="text-2xl">⚔️</div>
           <div>
             <h2 className="font-display text-gold text-sm tracking-wider mb-1">Training</h2>
-            <p className="text-parchment/40 text-xs">Play against the AI — levels 1 to 3</p>
+            <p className="text-parchment/40 text-xs">Play against the AI — levels 1 to 5</p>
           </div>
         </Link>
       </div>
