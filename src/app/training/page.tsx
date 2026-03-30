@@ -165,6 +165,7 @@ export default function TrainingPage() {
   const [shake, setShake]       = useState(false)
   const [thinking, setThinking] = useState(false)
   const [dealt, setDealt]       = useState(false)
+  const [revealing, setRevealing] = useState(false) // landlord card reveal window
   // Bidding state
   const [bids, setBids]   = useState<(boolean | null)[]>([null, null, null])
   const [bidStep, setBidStep] = useState(0) // 0=waiting player, 1=AI1 deciding, 2=AI2 deciding
@@ -195,6 +196,7 @@ export default function TrainingPage() {
     })
     setBids([null, null, null])
     setBidStep(0)
+    setRevealing(false)
     setSelected(new Set())
     setHintIds(new Set())
     setDealt(false)
@@ -205,19 +207,19 @@ export default function TrainingPage() {
   // ── Finalise landlord selection ──
   // Uses setGame(prev=>) to always read fresh state — no stale-closure risk
   const finaliseLandlord = useCallback((landlord: PlayerIdx) => {
+    // Update hands but keep phase='bidding' so the reveal screen stays up
     setGame(prev => {
       if (!prev) return prev
       const newHands = prev.hands.map(h => [...h]) as [Card[], Card[], Card[]]
       newHands[landlord] = [...prev.hands[landlord], ...prev.landlordCards]
-      return {
-        ...prev,
-        hands: newHands,
-        landlord,
-        currentPlayer: landlord,
-        phase: 'playing',
-      }
+      return { ...prev, hands: newHands, landlord, currentPlayer: landlord }
     })
-    setPhase('playing')
+    // Show landlord cards face-up for 2.5 s, then start the game
+    setRevealing(true)
+    setTimeout(() => {
+      setRevealing(false)
+      setPhase('playing')
+    }, 2500)
     showToast(landlord === 0 ? 'You are the 地主!' : `AI ${landlord} is the 地主!`)
   }, [showToast])
 
@@ -611,91 +613,128 @@ export default function TrainingPage() {
               <div style={{ fontSize: 12, color: `${PAPER}50`, marginTop: 4 }}>Bidding</div>
             </div>
 
-            {/* Landlord cards (face down) */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2 }}>地主 CARDS</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {game.landlordCards.map((_, i) => <CardBack key={i} />)}
-              </div>
-            </div>
-
-            {/* Player's hand preview */}
-            <div style={{ width: '100%' }}>
-              <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2, textAlign: 'center', marginBottom: 8 }}>
-                YOUR HAND ({game.hands[0].length} cards)
-              </div>
+            {/* ── Landlord card reveal (after bidding) ── */}
+            {revealing && game.landlord !== null ? (
               <div style={{
-                display: 'flex', overflowX: 'auto', overflowY: 'visible',
-                paddingBottom: 4, paddingLeft: 8,
-                gap: 0,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 16,
+                animation: 'fadeInUp 0.3s ease',
               }}>
-                {game.hands[0]
-                  .slice()
-                  .sort((a, b) => a.value - b.value)
-                  .map((card, i) => (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: 13, color: GOLD,
+                    fontFamily: "'Cinzel Decorative', serif",
+                    letterSpacing: 2, marginBottom: 4,
+                  }}>
+                    👑 {playerLabel(game.landlord)} is the 地主
+                  </div>
+                  <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2 }}>
+                    地主 CARDS REVEALED
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {game.landlordCards.map((card, i) => (
                     <div
                       key={card.id}
-                      className={dealt ? 'card-deal' : ''}
-                      style={{
-                        marginRight: i < game.hands[0].length - 1 ? -16 : 0,
-                        animationDelay: `${i * 0.04}s`,
-                      }}
+                      className="combo-appear"
+                      style={{ animationDelay: `${i * 0.15}s` }}
                     >
                       <CardFace card={card} />
                     </div>
                   ))}
-              </div>
-            </div>
-
-            {/* Bid buttons */}
-            {bidStep === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
-                <div style={{ fontSize: 14, color: PAPER, textAlign: 'center' }}>
-                  Do you want to be the <span style={{ color: GOLD }}>地主</span>?
                 </div>
-                <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 280 }}>
-                  <button
-                    onClick={() => playerBid(true)}
-                    style={{
-                      flex: 1, height: 52, borderRadius: 10,
-                      background: `linear-gradient(135deg, #9A6E2A, ${GOLD})`,
-                      color: INK, border: 'none',
-                      fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    👑 Take it
-                  </button>
-                  <button
-                    onClick={() => playerBid(false)}
-                    style={{
-                      flex: 1, height: 52, borderRadius: 10,
-                      background: 'transparent',
-                      color: `${PAPER}60`,
-                      border: `1px solid ${PAPER}25`,
-                      fontSize: 14, cursor: 'pointer',
-                    }}
-                  >
-                    Pass
-                  </button>
+                <div style={{ fontSize: 11, color: `${PAPER}30`, letterSpacing: 1 }}>
+                  Game starting…
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', color: `${PAPER}60`, fontSize: 13 }}>
-                <div style={{ marginBottom: 6 }}>
-                  {bids[0] === false && <span>You passed. </span>}
-                  {bidStep >= 1 && <span>AI 1 thinking...</span>}
-                  {bidStep >= 2 && bids[1] === false && <span> AI 2 thinking...</span>}
+              <>
+                {/* Landlord cards face-down during bidding */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2 }}>地主 CARDS</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {game.landlordCards.map((_, i) => <CardBack key={i} />)}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                  {[0,1,2].map(i => (
-                    <div key={i} style={{
-                      fontSize: 11, color: bids[i] === null ? `${PAPER}30` : bids[i] ? GOLD : `${PAPER}40`,
-                    }}>
-                      {playerLabel(i as PlayerIdx)}: {bids[i] === null ? '...' : bids[i] ? '👑' : 'pass'}
+
+                {/* Player's hand preview */}
+                <div style={{ width: '100%' }}>
+                  <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2, textAlign: 'center', marginBottom: 8 }}>
+                    YOUR HAND ({game.hands[0].length} cards)
+                  </div>
+                  <div style={{
+                    display: 'flex', overflowX: 'auto', overflowY: 'visible',
+                    paddingBottom: 4, paddingLeft: 8,
+                  }}>
+                    {game.hands[0]
+                      .slice()
+                      .sort((a, b) => a.value - b.value)
+                      .map((card, i) => (
+                        <div
+                          key={card.id}
+                          className={dealt ? 'card-deal' : ''}
+                          style={{
+                            marginRight: i < game.hands[0].length - 1 ? -16 : 0,
+                            animationDelay: `${i * 0.04}s`,
+                          }}
+                        >
+                          <CardFace card={card} />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Bid buttons */}
+                {bidStep === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
+                    <div style={{ fontSize: 14, color: PAPER, textAlign: 'center' }}>
+                      Do you want to be the <span style={{ color: GOLD }}>地主</span>?
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 280 }}>
+                      <button
+                        onClick={() => playerBid(true)}
+                        style={{
+                          flex: 1, height: 52, borderRadius: 10,
+                          background: `linear-gradient(135deg, #9A6E2A, ${GOLD})`,
+                          color: INK, border: 'none',
+                          fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        👑 Take it
+                      </button>
+                      <button
+                        onClick={() => playerBid(false)}
+                        style={{
+                          flex: 1, height: 52, borderRadius: 10,
+                          background: 'transparent',
+                          color: `${PAPER}60`,
+                          border: `1px solid ${PAPER}25`,
+                          fontSize: 14, cursor: 'pointer',
+                        }}
+                      >
+                        Pass
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', color: `${PAPER}60`, fontSize: 13 }}>
+                    <div style={{ marginBottom: 6 }}>
+                      {bids[0] === false && <span>You passed. </span>}
+                      {bidStep >= 1 && <span>AI 1 thinking...</span>}
+                      {bidStep >= 2 && bids[1] === false && <span> AI 2 thinking...</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                      {[0,1,2].map(i => (
+                        <div key={i} style={{
+                          fontSize: 11, color: bids[i] === null ? `${PAPER}30` : bids[i] ? GOLD : `${PAPER}40`,
+                        }}>
+                          {playerLabel(i as PlayerIdx)}: {bids[i] === null ? '…' : bids[i] ? '👑' : 'pass'}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
