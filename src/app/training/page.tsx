@@ -218,7 +218,7 @@ export default function TrainingPage() {
       }
     })
     setPhase('playing')
-    showToast(landlord === 0 ? 'Tu es le 地主 !' : `IA ${landlord} est le 地主 !`)
+    showToast(landlord === 0 ? 'You are the 地主!' : `AI ${landlord} is the 地主!`)
   }, [showToast])
 
   // ── Bidding: player decision ──
@@ -255,7 +255,7 @@ export default function TrainingPage() {
         } else {
           // Nobody bid — force player to be landlord
           finaliseLandlord(0)
-          showToast('Personne n\'a enchéri — tu es le 地主 !')
+          showToast('Nobody bid — you are the 地主!')
         }
       }, 700)
       return () => clearTimeout(timer)
@@ -371,14 +371,14 @@ export default function TrainingPage() {
       game.hands[0].find(c => c.id === id)!
     ).filter(Boolean)
 
-    if (playCards.length === 0) { showToast('Sélectionne des cartes'); return }
+    if (playCards.length === 0) { showToast('Select cards first'); return }
 
     const effectiveLastPlayed =
       game.lastPlayedBy === 0 ? null : game.lastPlayed
     const combo = parseCombo(playCards)
 
     if (!combo || !isValidPlay(combo, effectiveLastPlayed)) {
-      showToast('Combo invalide')
+      showToast('Invalid combination')
       setShake(true)
       setTimeout(() => setShake(false), 500)
       return
@@ -396,7 +396,7 @@ export default function TrainingPage() {
     if (!game || game.currentPlayer !== 0) return
     // Can only pass if someone has already played
     if (game.lastPlayed === null || game.lastPlayedBy === 0) {
-      showToast('Tu dois jouer une carte ici')
+      showToast('You must play here')
       return
     }
     setSelected(new Set())
@@ -409,7 +409,7 @@ export default function TrainingPage() {
     const effectiveLastPlayed =
       game.lastPlayedBy === 0 ? null : game.lastPlayed
     const plays = getAllValidPlays(game.hands[0], effectiveLastPlayed)
-    if (plays.length === 0) { showToast('Aucune combinaison jouable — passe !'); return }
+    if (plays.length === 0) { showToast('No playable combination — pass!'); return }
     // Suggest lowest value play
     const best = plays.sort((a, b) => {
       const va = parseCombo(a)?.value ?? 0
@@ -443,14 +443,14 @@ export default function TrainingPage() {
     if (!game || game.winner === null) return ''
     const w = game.winner
     const isLandlord = w === game.landlord
-    if (w === 0) return isLandlord ? '🎉 Tu gagnes en tant que 地主 !' : '🎉 Tu gagnes !'
+    if (w === 0) return isLandlord ? '🎉 You win as 地主!' : '🎉 You win!'
     const farmers = [0, 1, 2].filter(i => i !== game.landlord)
     if (!isLandlord) {
       return farmers.includes(0)
-        ? `IA ${w} gagne — les paysans l'emportent !`
-        : `IA ${w} (地主) gagne !`
+        ? `AI ${w} wins — the farmers triumph!`
+        : `AI ${w} (地主) wins!`
     }
-    return `IA ${w} (地主) gagne !`
+    return `AI ${w} (地主) wins!`
   }
 
   // ── Layout ──────────────────────────────────────────
@@ -539,13 +539,13 @@ export default function TrainingPage() {
                 fontFamily: "'Cinzel Decorative', serif",
                 fontSize: 11, color: `${GOLD}80`,
                 letterSpacing: 4, marginTop: 6,
-              }}>SALLE D'ENTRAÎNEMENT</div>
+              }}>TRAINING ROOM</div>
             </div>
 
             {/* Level selector */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
               <div style={{ fontSize: 11, color: `${PAPER}50`, letterSpacing: 2, fontFamily: "'Cinzel Decorative',serif" }}>
-                NIVEAU IA
+                AI LEVEL
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {([1, 2, 3] as AILevel[]).map(l => (
@@ -582,7 +582,7 @@ export default function TrainingPage() {
                 boxShadow: `0 4px 20px rgba(201,168,76,0.35)`,
               }}
             >
-              NOUVELLE PARTIE
+              NEW GAME
             </button>
 
             <div style={{ fontSize: 30, opacity: 0.08, display: 'flex', gap: 16 }}>
@@ -608,12 +608,12 @@ export default function TrainingPage() {
                 fontFamily: "'Ma Shan Zheng', cursive",
                 fontSize: 28, color: GOLD,
               }}>斗地主</div>
-              <div style={{ fontSize: 12, color: `${PAPER}50`, marginTop: 4 }}>Enchères</div>
+              <div style={{ fontSize: 12, color: `${PAPER}50`, marginTop: 4 }}>Bidding</div>
             </div>
 
             {/* Landlord cards (face down) */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2 }}>CARTES DU 地主</div>
+              <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2 }}>地主 CARDS</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {game.landlordCards.map((_, i) => <CardBack key={i} />)}
               </div>
@@ -622,7 +622,7 @@ export default function TrainingPage() {
             {/* Player's hand preview */}
             <div style={{ width: '100%' }}>
               <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 2, textAlign: 'center', marginBottom: 8 }}>
-                TA MAIN ({game.hands[0].length} cartes)
+                YOUR HAND ({game.hands[0].length} cards)
               </div>
               <div style={{
                 display: 'flex', overflowX: 'auto', overflowY: 'visible',
@@ -651,7 +651,7 @@ export default function TrainingPage() {
             {bidStep === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
                 <div style={{ fontSize: 14, color: PAPER, textAlign: 'center' }}>
-                  Veux-tu être le <span style={{ color: GOLD }}>地主</span> ?
+                  Do you want to be the <span style={{ color: GOLD }}>地主</span>?
                 </div>
                 <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 280 }}>
                   <button
@@ -663,7 +663,7 @@ export default function TrainingPage() {
                       fontSize: 14, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
-                    👑 Prendre
+                    👑 Take it
                   </button>
                   <button
                     onClick={() => playerBid(false)}
@@ -675,16 +675,16 @@ export default function TrainingPage() {
                       fontSize: 14, cursor: 'pointer',
                     }}
                   >
-                    Passer
+                    Pass
                   </button>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: `${PAPER}60`, fontSize: 13 }}>
                 <div style={{ marginBottom: 6 }}>
-                  {bids[0] === false && <span>Tu as passé. </span>}
-                  {bidStep >= 1 && <span>IA 1 réfléchit...</span>}
-                  {bidStep >= 2 && bids[1] === false && <span> IA 2 réfléchit...</span>}
+                  {bids[0] === false && <span>You passed. </span>}
+                  {bidStep >= 1 && <span>AI 1 thinking...</span>}
+                  {bidStep >= 2 && bids[1] === false && <span> AI 2 thinking...</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                   {[0,1,2].map(i => (
@@ -781,7 +781,7 @@ export default function TrainingPage() {
                     )}
                   </div>
                   {game.currentPlayer === aiIdx && thinking && (
-                    <div style={{ fontSize: 9, color: `${GOLD}80`, letterSpacing: 1 }}>réfléchit…</div>
+                    <div style={{ fontSize: 9, color: `${GOLD}80`, letterSpacing: 1 }}>thinking…</div>
                   )}
                 </div>
               ))}
@@ -822,7 +822,7 @@ export default function TrainingPage() {
                     >
                       <span style={{ color: `${GOLD}70` }}>{playerLabel(entry.player)}</span>
                       {entry.passed
-                        ? <span style={{ color: `${PAPER}30` }}>passe</span>
+                        ? <span style={{ color: `${PAPER}30` }}>pass</span>
                         : (
                           <>
                             <span style={{ color: `${PAPER}50` }}>·</span>
@@ -849,7 +849,7 @@ export default function TrainingPage() {
                 {game.lastPlayed ? (
                   <>
                     <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 1 }}>
-                      {game.lastPlayedBy === 0 ? 'Tu as joué' : `IA ${game.lastPlayedBy} a joué`}
+                      {game.lastPlayedBy === 0 ? 'You played' : `AI ${game.lastPlayedBy} played`}
                       {' · '}
                       <span style={{ color: `${GOLD}80` }}>{game.lastPlayed.type.replace(/_/g, '+')}</span>
                     </div>
@@ -868,7 +868,7 @@ export default function TrainingPage() {
                       {game.landlord !== null && '👑'}
                     </div>
                     <div style={{ fontSize: 11, color: `${PAPER}50`, letterSpacing: 1 }}>
-                      Table libre · Joue n'importe quelle combinaison
+                      Open table · Play any combination
                     </div>
                   </div>
                 )}
@@ -882,15 +882,15 @@ export default function TrainingPage() {
                     fontFamily: "'Cinzel Decorative', serif",
                   }}>
                     {isMyTurn
-                      ? '⟶ À TOI'
+                      ? '⟶ YOUR TURN'
                       : thinking
-                        ? `IA ${game.currentPlayer} réfléchit…`
-                        : `Tour de ${playerLabel(game.currentPlayer)}`
+                        ? `AI ${game.currentPlayer} thinking…`
+                        : `${playerLabel(game.currentPlayer)}'s turn`
                     }
                   </div>
                   {game.landlord !== null && (
                     <div style={{ fontSize: 9, color: `${GOLD}50` }}>
-                      👑 {playerLabel(game.landlord)}
+                      👑 {playerLabel(game.landlord)} is 地主
                     </div>
                   )}
                 </div>
@@ -910,7 +910,7 @@ export default function TrainingPage() {
               }}
             >
               <div style={{ fontSize: 11, color: `${PAPER}30`, marginBottom: 4, paddingRight: 16 }}>
-                Ta main
+                Your hand
                 {game.landlord === 0 && <span style={{ color: `${GOLD}60`, marginLeft: 6 }}>👑 地主</span>}
                 <span style={{ marginLeft: 6 }}>({game.hands[0].length})</span>
               </div>
@@ -983,7 +983,7 @@ export default function TrainingPage() {
                   transition: 'all 0.15s',
                 }}
               >
-                Passer
+                Pass
               </button>
               <button
                 onClick={handleHint}
@@ -1043,7 +1043,7 @@ export default function TrainingPage() {
                     color: game.winner === i ? GOLD : `${PAPER}70`,
                     fontWeight: game.winner === i ? 700 : 400,
                   }}>
-                    {game.hands[i].length === 0 ? '✓ vide' : `${game.hands[i].length} cartes`}
+                    {game.hands[i].length === 0 ? '✓ empty' : `${game.hands[i].length} cards`}
                   </div>
                   {game.landlord === i && (
                     <div style={{ color: `${GOLD}70`, fontSize: 10 }}>地主</div>
@@ -1064,7 +1064,7 @@ export default function TrainingPage() {
                   letterSpacing: 1, cursor: 'pointer',
                 }}
               >
-                Rejouer
+                Play again
               </button>
               <button
                 onClick={() => { setPhase('start'); setGame(null) }}
