@@ -207,9 +207,16 @@ export default function TrainingPage() {
   // ── Finalise landlord selection ──
   // Uses setGame(prev=>) to always read fresh state — no stale-closure risk
   const finaliseLandlord = useCallback((landlord: PlayerIdx) => {
-    // Update hands but keep phase='bidding' so the reveal screen stays up
+    // setBidStep to a sentinel value immediately so the AI bidding
+    // useEffect cannot fire again while phase is still 'bidding'
+    setBidStep(99)
+
     setGame(prev => {
       if (!prev) return prev
+      // Idempotent guard: if landlord is already set, do nothing.
+      // This prevents the landlord cards from being added a second time
+      // when the AI bidding useEffect re-triggers after game state changes.
+      if (prev.landlord !== null) return prev
       const newHands = prev.hands.map(h => [...h]) as [Card[], Card[], Card[]]
       newHands[landlord] = [...prev.hands[landlord], ...prev.landlordCards]
       return { ...prev, hands: newHands, landlord, currentPlayer: landlord }
@@ -223,6 +230,7 @@ export default function TrainingPage() {
     showToast(landlord === 0 ? 'You are the 地主!' : `AI ${landlord} is the 地主!`)
   }, [showToast])
 
+
   // ── Bidding: player decision ──
   const playerBid = useCallback((wantLandlord: boolean) => {
     setBids(prev => { const n = [...prev]; n[0] = wantLandlord; return n })
@@ -235,7 +243,8 @@ export default function TrainingPage() {
 
   // ── AI bidding sequence ──
   useEffect(() => {
-    if (phase !== 'bidding' || !game) return
+    // Bail out if we're not in bidding phase, or landlord already decided
+    if (phase !== 'bidding' || !game || game.landlord !== null || bidStep === 99) return
     if (bidStep === 1) {
       const timer = setTimeout(() => {
         const ai1Bids = shouldBid(game.hands[1])
