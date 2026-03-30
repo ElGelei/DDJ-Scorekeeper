@@ -202,35 +202,34 @@ export default function TrainingPage() {
     setTimeout(() => setDealt(true), 50)
   }, [])
 
+  // ── Finalise landlord selection ──
+  // Uses setGame(prev=>) to always read fresh state — no stale-closure risk
+  const finaliseLandlord = useCallback((landlord: PlayerIdx) => {
+    setGame(prev => {
+      if (!prev) return prev
+      const newHands = prev.hands.map(h => [...h]) as [Card[], Card[], Card[]]
+      newHands[landlord] = [...prev.hands[landlord], ...prev.landlordCards]
+      return {
+        ...prev,
+        hands: newHands,
+        landlord,
+        currentPlayer: landlord,
+        phase: 'playing',
+      }
+    })
+    setPhase('playing')
+    showToast(landlord === 0 ? 'Tu es le 地主 !' : `IA ${landlord} est le 地主 !`)
+  }, [showToast])
+
   // ── Bidding: player decision ──
   const playerBid = useCallback((wantLandlord: boolean) => {
     setBids(prev => { const n = [...prev]; n[0] = wantLandlord; return n })
     if (wantLandlord) {
-      // Player becomes landlord immediately
-      finaliseLandlord(0, true)
+      finaliseLandlord(0)
     } else {
       setBidStep(1) // AI1 will decide
     }
-  }, []) // eslint-disable-line
-
-  // ── Finalise landlord selection ──
-  const finaliseLandlord = useCallback((landlord: PlayerIdx, bidHappened: boolean) => {
-    if (!game) return
-    const newHand = [...game.hands[landlord], ...game.landlordCards] as Card[]
-    const newHands = [...game.hands] as [Card[], Card[], Card[]]
-    newHands[landlord] = newHand
-
-    const newGame: GameState = {
-      ...game,
-      hands: newHands,
-      landlord,
-      currentPlayer: landlord,
-      phase: 'playing',
-    }
-    setGame(newGame)
-    setPhase('playing')
-    showToast(landlord === 0 ? 'Tu es le 地主 !' : `IA ${landlord} est le 地主 !`)
-  }, [game, showToast])
+  }, [finaliseLandlord])
 
   // ── AI bidding sequence ──
   useEffect(() => {
@@ -240,7 +239,7 @@ export default function TrainingPage() {
         const ai1Bids = shouldBid(game.hands[1])
         setBids(prev => { const n = [...prev]; n[1] = ai1Bids; return n })
         if (ai1Bids) {
-          finaliseLandlord(1, true)
+          finaliseLandlord(1)
         } else {
           setBidStep(2)
         }
@@ -252,10 +251,10 @@ export default function TrainingPage() {
         const ai2Bids = shouldBid(game.hands[2])
         setBids(prev => { const n = [...prev]; n[2] = ai2Bids; return n })
         if (ai2Bids) {
-          finaliseLandlord(2, true)
+          finaliseLandlord(2)
         } else {
           // Nobody bid — force player to be landlord
-          finaliseLandlord(0, false)
+          finaliseLandlord(0)
           showToast('Personne n\'a enchéri — tu es le 地主 !')
         }
       }, 700)
