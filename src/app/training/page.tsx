@@ -13,6 +13,19 @@ import { aiPlay, getAllValidPlays, shouldBid, type AILevel } from '@/lib/ddz/ai'
 type Phase = 'start' | 'bidding' | 'playing' | 'ended'
 type PlayerIdx = 0 | 1 | 2
 
+interface PlayLogEntry {
+  player: PlayerIdx
+  combo: Combo
+  passed: false
+}
+
+interface PassLogEntry {
+  player: PlayerIdx
+  passed: true
+}
+
+type LogEntry = PlayLogEntry | PassLogEntry
+
 interface GameState {
   hands: [Card[], Card[], Card[]]
   landlordCards: Card[]
@@ -23,6 +36,8 @@ interface GameState {
   winner: PlayerIdx | null
   allPlayedCards: Card[]
   phase: Phase
+  /** Last 4 actions (plays + passes) for the history display */
+  playLog: LogEntry[]
 }
 
 // ── Inline styles / helpers ────────────────────────────
@@ -176,6 +191,7 @@ export default function TrainingPage() {
       winner: null,
       allPlayedCards: [],
       phase: 'bidding',
+      playLog: [],
     })
     setBids([null, null, null])
     setBidStep(0)
@@ -271,6 +287,11 @@ export default function TrainingPage() {
     const nextLastPlayedBy: PlayerIdx | null =
       next === playerIdx ? null : playerIdx
 
+    const newLog: LogEntry[] = [
+      { player: playerIdx, combo, passed: false },
+      ...currentGame.playLog,
+    ].slice(0, 5)
+
     return {
       ...currentGame,
       hands: newHands,
@@ -279,6 +300,7 @@ export default function TrainingPage() {
       currentPlayer: next,
       winner: newHands[playerIdx].length === 0 ? playerIdx : null,
       allPlayedCards: [...currentGame.allPlayedCards, ...cards],
+      playLog: newLog,
     }
   }, [])
 
@@ -288,11 +310,16 @@ export default function TrainingPage() {
   ): GameState => {
     const next: PlayerIdx = ((playerIdx + 1) % 3) as PlayerIdx
     const clearTable = next === currentGame.lastPlayedBy
+    const newLog: LogEntry[] = [
+      { player: playerIdx, passed: true },
+      ...currentGame.playLog,
+    ].slice(0, 5)
     return {
       ...currentGame,
       currentPlayer: next,
       lastPlayed: clearTable ? null : currentGame.lastPlayed,
       lastPlayedBy: clearTable ? null : currentGame.lastPlayedBy,
+      playLog: newLog,
     }
   }, [])
 
@@ -763,67 +790,112 @@ export default function TrainingPage() {
 
             {/* ── CENTRAL ZONE (25vh) ── */}
             <div style={{
-              height: '25vh', minHeight: 120,
+              height: '25vh', minHeight: 130,
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-              gap: 8,
               borderTop: `1px solid ${PAPER}06`,
               borderBottom: `1px solid ${PAPER}06`,
-              padding: '8px 16px',
+              overflow: 'hidden',
             }}>
-              {game.lastPlayed ? (
-                <>
-                  <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 1 }}>
-                    {game.lastPlayedBy === 0 ? 'Tu as joué' : `IA ${game.lastPlayedBy} a joué`}
-                    {' · '}
-                    <span style={{ color: `${GOLD}80` }}>{game.lastPlayed.type.replace('_', '+')}</span>
-                  </div>
-                  <div
-                    className="combo-appear"
-                    style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}
-                  >
-                    {game.lastPlayed.cards.map(card => (
-                      <CardFace key={card.id} card={card} small />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', opacity: 0.3 }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>
-                    {game.landlord !== null && '👑'}
-                  </div>
-                  <div style={{ fontSize: 11, color: `${PAPER}50`, letterSpacing: 1 }}>
-                    Première mise · Joue n'importe quelle combinaison
-                  </div>
-                </div>
-              )}
-
-              {/* Turn indicator */}
-              <div style={{
-                fontSize: 12,
-                color: isMyTurn ? GOLD : `${PAPER}40`,
-                letterSpacing: 1,
-                fontFamily: "'Cinzel Decorative', serif",
-                marginTop: 4,
-              }}>
-                {isMyTurn
-                  ? '⟶ À TOI DE JOUER'
-                  : thinking
-                    ? `IA ${game.currentPlayer} réfléchit…`
-                    : `Tour de ${playerLabel(game.currentPlayer)}`
-                }
-              </div>
-
-              {/* Landlord badge */}
-              {game.landlord !== null && (
+              {/* History strip — last 4 actions scrollable */}
+              {game.playLog.length > 0 && (
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  fontSize: 10, color: `${GOLD}60`,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  overflowX: 'auto', overflowY: 'hidden',
+                  padding: '4px 12px',
+                  borderBottom: `1px solid ${PAPER}06`,
+                  minHeight: 32, flexShrink: 0,
+                  direction: 'rtl', // newest at left
                 }}>
-                  <span>👑</span>
-                  <span>{playerLabel(game.landlord)} est le 地主</span>
+                  {game.playLog.map((entry, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        direction: 'ltr',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        flexShrink: 0,
+                        opacity: i === 0 ? 0 : (1 - i * 0.2),  // hide [0]=same as lastPlayed
+                        fontSize: 10,
+                        color: i === 1 ? PAPER : `${PAPER}50`,
+                        background: i === 1 ? `${PAPER}08` : 'transparent',
+                        borderRadius: 5, padding: '2px 6px',
+                        border: i === 1 ? `1px solid ${PAPER}12` : 'none',
+                      }}
+                    >
+                      <span style={{ color: `${GOLD}70` }}>{playerLabel(entry.player)}</span>
+                      {entry.passed
+                        ? <span style={{ color: `${PAPER}30` }}>passe</span>
+                        : (
+                          <>
+                            <span style={{ color: `${PAPER}50` }}>·</span>
+                            {entry.combo.cards.slice(0, 4).map(c => (
+                              <CardFace key={c.id} card={c} small />
+                            ))}
+                            {entry.combo.cards.length > 4 && (
+                              <span style={{ color: `${PAPER}40` }}>+{entry.combo.cards.length - 4}</span>
+                            )}
+                          </>
+                        )
+                      }
+                    </div>
+                  ))}
                 </div>
               )}
+
+              {/* Main current play */}
+              <div style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 6, padding: '4px 16px',
+              }}>
+                {game.lastPlayed ? (
+                  <>
+                    <div style={{ fontSize: 11, color: `${PAPER}40`, letterSpacing: 1 }}>
+                      {game.lastPlayedBy === 0 ? 'Tu as joué' : `IA ${game.lastPlayedBy} a joué`}
+                      {' · '}
+                      <span style={{ color: `${GOLD}80` }}>{game.lastPlayed.type.replace(/_/g, '+')}</span>
+                    </div>
+                    <div
+                      className="combo-appear"
+                      style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 3 }}
+                    >
+                      {game.lastPlayed.cards.map(card => (
+                        <CardFace key={card.id} card={card} small />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', opacity: 0.3 }}>
+                    <div style={{ fontSize: 22, marginBottom: 2 }}>
+                      {game.landlord !== null && '👑'}
+                    </div>
+                    <div style={{ fontSize: 11, color: `${PAPER}50`, letterSpacing: 1 }}>
+                      Table libre · Joue n'importe quelle combinaison
+                    </div>
+                  </div>
+                )}
+
+                {/* Turn indicator + landlord badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    fontSize: 11,
+                    color: isMyTurn ? GOLD : `${PAPER}40`,
+                    letterSpacing: 1,
+                    fontFamily: "'Cinzel Decorative', serif",
+                  }}>
+                    {isMyTurn
+                      ? '⟶ À TOI'
+                      : thinking
+                        ? `IA ${game.currentPlayer} réfléchit…`
+                        : `Tour de ${playerLabel(game.currentPlayer)}`
+                    }
+                  </div>
+                  {game.landlord !== null && (
+                    <div style={{ fontSize: 9, color: `${GOLD}50` }}>
+                      👑 {playerLabel(game.landlord)}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* ── HAND ZONE (37vh) ── */}
@@ -833,36 +905,44 @@ export default function TrainingPage() {
                 height: '37vh', minHeight: 120,
                 display: 'flex', flexDirection: 'column',
                 justifyContent: 'flex-end',
-                padding: '8px 0 8px 16px',
+                padding: '0 0 6px 16px',
+                /* overflow must stay visible so translateY(-10px) isn't clipped */
+                overflow: 'visible',
               }}
             >
-              <div style={{ fontSize: 11, color: `${PAPER}30`, marginBottom: 6, paddingRight: 16 }}>
+              <div style={{ fontSize: 11, color: `${PAPER}30`, marginBottom: 4, paddingRight: 16 }}>
                 Ta main
                 {game.landlord === 0 && <span style={{ color: `${GOLD}60`, marginLeft: 6 }}>👑 地主</span>}
                 <span style={{ marginLeft: 6 }}>({game.hands[0].length})</span>
               </div>
-              <div style={{
-                display: 'flex', overflowX: 'auto', overflowY: 'visible',
-                paddingBottom: 12,
-                WebkitOverflowScrolling: 'touch',
-                alignItems: 'flex-end',
-              }}>
-                {game.hands[0]
-                  .slice()
-                  .sort((a, b) => a.value - b.value)
-                  .map((card, i, arr) => (
-                    <div
-                      key={card.id}
-                      style={{ marginRight: i < arr.length - 1 ? -16 : 8 }}
-                    >
-                      <CardFace
-                        card={card}
-                        selected={selected.has(card.id)}
-                        hinted={hintIds.has(card.id)}
-                        onClick={isMyTurn ? () => toggleCard(card.id) : undefined}
-                      />
-                    </div>
-                  ))}
+              {/* Wrapper adds top padding = card lift so overflow isn't clipped */}
+              <div style={{ paddingTop: 14, overflow: 'visible' }}>
+                <div style={{
+                  display: 'flex',
+                  overflowX: 'auto',
+                  /* paddingTop gives room for translateY(-10px) without clipping */
+                  paddingTop: 12,
+                  paddingBottom: 8,
+                  WebkitOverflowScrolling: 'touch',
+                  alignItems: 'flex-end',
+                }}>
+                  {game.hands[0]
+                    .slice()
+                    .sort((a, b) => a.value - b.value)
+                    .map((card, i, arr) => (
+                      <div
+                        key={card.id}
+                        style={{ marginRight: i < arr.length - 1 ? -16 : 8, flexShrink: 0 }}
+                      >
+                        <CardFace
+                          card={card}
+                          selected={selected.has(card.id)}
+                          hinted={hintIds.has(card.id)}
+                          onClick={isMyTurn ? () => toggleCard(card.id) : undefined}
+                        />
+                      </div>
+                    ))}
+                </div>
               </div>
             </div>
 
